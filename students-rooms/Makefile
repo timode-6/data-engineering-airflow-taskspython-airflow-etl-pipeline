@@ -1,27 +1,41 @@
 VENV ?= .venv
-PY   := $(VENV)/bin/python
 
-.PHONY: venv install db-up db-up-pg db-down run run-pg run-xml test lint clean
+ifeq ($(OS),Windows_NT)
+    PY        := $(VENV)/Scripts/python.exe
+    SYSTEM_PY := python
+else
+    PY        := $(VENV)/bin/python
+    SYSTEM_PY := python3
+endif
+
+STUDENTS ?= data/students.json
+ROOMS ?= data/rooms.json
+OUT ?= out/report.json
 
 venv:
-	python3 -m venv $(VENV)
+	$(SYSTEM_PY) -m venv $(VENV)
 
 install: venv
 	$(PY) -m pip install --upgrade pip
-	$(PY) -m pip install -r requirements-dev.txt
-	$(PY) -m pip install -e .
+	$(PY) -m pip install -e ".[dev]"
 
-db-up-pg:
-	docker compose --profile postgresql up -d
+db-up:
+	docker compose up -d
 
 db-down:
-	docker compose --profile all down
+	docker compose down
+
+db-reset:
+	docker compose down -v
 
 run:
-	$(PY) main.py --students data/students.json --rooms data/rooms.json --format json --output out/report.json
+	$(PY) main.py --students $(STUDENTS) --rooms $(ROOMS) --format json --output $(OUT)
 
 run-xml:
-	$(PY) main.py --students data/students.json --rooms data/rooms.json --format xml --output out/report.xml
+	$(PY) main.py --students $(STUDENTS) --rooms $(ROOMS) --format xml --output out/report.xml
+
+explain:
+	$(PY) scripts/capture_plans.py
 
 test:
 	$(PY) -m pytest -q
@@ -31,5 +45,5 @@ lint:
 	$(PY) -m mypy
 
 clean:
-	rm -rf out .pytest_cache .mypy_cache .ruff_cache
-	find . -name __pycache__ -type d -exec rm -rf {} +
+	$(PY) -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]"
+	$(PY) -c "import shutil; [shutil.rmtree(d, ignore_errors=True) for d in ('out', '.pytest_cache', '.mypy_cache', '.ruff_cache')]"

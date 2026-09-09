@@ -18,3 +18,4 @@ coverage-reports/
 .coverage
 sonar-project.properties
 .sonar/
+after.txt
